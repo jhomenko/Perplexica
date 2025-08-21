@@ -14,11 +14,13 @@ import { chats, messages as messagesSchema } from '@/lib/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
 import { getFileDetails } from '@/lib/utils/files';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { ChatOpenAI } from '@langchain/openai';
+import { Embeddings } from '@langchain/core/embeddings';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import {
   getCustomOpenaiApiKey,
   getCustomOpenaiApiUrl,
   getCustomOpenaiModelName,
+  getCustomOpenaiEmbeddingModelName,
 } from '@/lib/config';
 import { searchHandlers } from '@/lib/search';
 
@@ -285,6 +287,16 @@ export const POST = async (req: Request) => {
       }) as unknown as BaseChatModel;
     } else if (chatModelProvider && chatModel) {
       llm = chatModel.model;
+    }
+
+    if (body.embeddingModel?.provider === 'custom_openai') {
+      embedding = new OpenAIEmbeddings({
+        apiKey: getCustomOpenaiApiKey(),
+        modelName: getCustomOpenaiEmbeddingModelName(),
+        configuration: {
+          baseURL: getCustomOpenaiApiUrl(),
+        },
+      }) as unknown as Embeddings;
     }
 
     if (!llm) {

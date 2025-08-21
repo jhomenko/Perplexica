@@ -1,6 +1,6 @@
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { Embeddings } from '@langchain/core/embeddings';
-import { ChatOpenAI } from '@langchain/openai';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import {
   getAvailableChatModelProviders,
   getAvailableEmbeddingModelProviders,
@@ -11,6 +11,7 @@ import {
   getCustomOpenaiApiKey,
   getCustomOpenaiApiUrl,
   getCustomOpenaiModelName,
+  getCustomOpenaiEmbeddingModelName,
 } from '@/lib/config';
 import { searchHandlers } from '@/lib/search';
 
@@ -109,7 +110,15 @@ export const POST = async (req: Request) => {
         .model as unknown as BaseChatModel | undefined;
     }
 
-    if (
+    if (body.embeddingModel?.provider === 'custom_openai') {
+      embeddings = new OpenAIEmbeddings({
+        apiKey: getCustomOpenaiApiKey(),
+        modelName: getCustomOpenaiEmbeddingModelName(),
+        configuration: {
+          baseURL: getCustomOpenaiApiUrl(),
+        },
+      }) as unknown as Embeddings;
+    } else if (
       embeddingModelProviders[embeddingModelProvider] &&
       embeddingModelProviders[embeddingModelProvider][embeddingModel]
     ) {

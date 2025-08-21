@@ -3,6 +3,7 @@ import {
   getCustomOpenaiApiKey,
   getCustomOpenaiApiUrl,
   getCustomOpenaiModelName,
+  getCustomOpenaiEmbeddingModelName,
   getGeminiApiKey,
   getGroqApiKey,
   getOllamaApiEndpoint,
@@ -62,6 +63,8 @@ export const GET = async (req: Request) => {
     config['customOpenaiApiUrl'] = getCustomOpenaiApiUrl();
     config['customOpenaiApiKey'] = getCustomOpenaiApiKey();
     config['customOpenaiModelName'] = getCustomOpenaiModelName();
+    config['customOpenaiEmbeddingModelName'] = getCustomOpenaiEmbeddingModelName();
+    config['embeddingModel'] = config.embeddingModel || '';
 
     return Response.json({ ...config }, { status: 200 });
   } catch (err) {
@@ -107,6 +110,7 @@ export const POST = async (req: Request) => {
           API_URL: config.customOpenaiApiUrl,
           API_KEY: config.customOpenaiApiKey,
           MODEL_NAME: config.customOpenaiModelName,
+          EMBEDDING_MODEL_NAME: config.customOpenaiEmbeddingModelName,
         },
       },
     };

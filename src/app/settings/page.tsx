@@ -27,6 +27,8 @@ interface SettingsType {
   customOpenaiApiKey: string;
   customOpenaiApiUrl: string;
   customOpenaiModelName: string;
+  customOpenaiEmbeddingModelName: string;
+  embeddingModel: string;
 }
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -191,11 +193,16 @@ const Page = () => {
         localStorage.getItem('embeddingModelProvider') ||
         defaultEmbeddingModelProvider ||
         '';
-      const embeddingModel =
-        localStorage.getItem('embeddingModel') ||
-        (data.embeddingModelProviders &&
-          data.embeddingModelProviders[embeddingModelProvider]?.[0].name) ||
-        '';
+      let embeddingModel;
+      if (embeddingModelProvider === 'custom_openai') {
+        embeddingModel = localStorage.getItem('customOpenaiEmbeddingModelName') || data.customOpenaiEmbeddingModelName || '';
+      } else {
+        embeddingModel =
+          localStorage.getItem('embeddingModel') ||
+          (data.embeddingModelProviders &&
+            data.embeddingModelProviders[embeddingModelProvider]?.[0]?.name) ||
+          '';
+      }
 
       setSelectedChatModelProvider(chatModelProvider);
       setSelectedChatModel(chatModel);
@@ -221,7 +228,7 @@ const Page = () => {
     };
 
     fetchConfig();
-  }, []);
+}, []);
 
   const saveConfig = async (key: string, value: any) => {
     setSavingStates((prev) => ({ ...prev, [key]: true }));
@@ -373,6 +380,8 @@ const Page = () => {
         localStorage.setItem('embeddingModelProvider', value);
       } else if (key === 'embeddingModel') {
         localStorage.setItem('embeddingModel', value);
+      } else if (key === 'customOpenaiEmbeddingModelName') {
+        localStorage.setItem('customOpenaiEmbeddingModelName', value);
       } else if (key === 'systemInstructions') {
         localStorage.setItem('systemInstructions', value);
       } else if (key === 'measureUnit') {
@@ -701,81 +710,104 @@ const Page = () => {
                   </div>
                 )}
 
-              {config.embeddingModelProviders && (
-                <div className="flex flex-col space-y-4 mt-4 pt-4 border-t border-light-200 dark:border-dark-200">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-black/70 dark:text-white/70 text-sm">
-                      Embedding Model Provider
-                    </p>
-                    <Select
-                      value={selectedEmbeddingModelProvider ?? undefined}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedEmbeddingModelProvider(value);
-                        saveConfig('embeddingModelProvider', value);
-                        const firstModel =
-                          config.embeddingModelProviders[value]?.[0]?.name;
-                        if (firstModel) {
-                          setSelectedEmbeddingModel(firstModel);
-                          saveConfig('embeddingModel', firstModel);
-                        }
-                      }}
-                      options={Object.keys(config.embeddingModelProviders).map(
-                        (provider) => ({
+                {config.embeddingModelProviders && (
+                  <div className="flex flex-col space-y-4 mt-4 pt-4 border-t border-light-200 dark:border-dark-200">
+
+                    {/* Embedding Model Provider */}
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-black/70 dark:text-white/70 text-sm">
+                        Embedding Model Provider
+                      </p>
+                      <Select
+                        value={selectedEmbeddingModelProvider ?? undefined}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSelectedEmbeddingModelProvider(value);
+                          saveConfig('embeddingModelProvider', value);
+                          localStorage.setItem('embeddingModelProvider', value);
+
+                          // For non-custom providers, default to the first available model
+                          if (value !== 'custom_openai') {
+                            const firstModel = config.embeddingModelProviders[value]?.[0]?.name || '';
+                            if (firstModel) {
+                              setSelectedEmbeddingModel(firstModel);
+                              saveConfig('embeddingModel', firstModel);
+                            } else {
+                              setSelectedEmbeddingModel(null);   // state: string | null
+                              saveConfig('embeddingModel', '');  // clear persisted value
+                            }
+                          }
+                          // If custom_openai, do nothing here—user will type below
+                        }}
+                        options={Object.keys(config.embeddingModelProviders).map((provider) => ({
                           value: provider,
                           label:
                             (PROVIDER_METADATA as any)[provider]?.displayName ||
-                            provider.charAt(0).toUpperCase() +
-                              provider.slice(1),
-                        }),
-                      )}
-                    />
-                  </div>
-
-                  {selectedEmbeddingModelProvider && (
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-black/70 dark:text-white/70 text-sm">
-                        Embedding Model
-                      </p>
-                      <Select
-                        value={selectedEmbeddingModel ?? undefined}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setSelectedEmbeddingModel(value);
-                          saveConfig('embeddingModel', value);
-                        }}
-                        options={(() => {
-                          const embeddingModelProvider =
-                            config.embeddingModelProviders[
-                              selectedEmbeddingModelProvider
-                            ];
-                          return embeddingModelProvider
-                            ? embeddingModelProvider.length > 0
-                              ? embeddingModelProvider.map((model) => ({
-                                  value: model.name,
-                                  label: model.displayName,
-                                }))
-                              : [
-                                  {
-                                    value: '',
-                                    label: 'No models available',
-                                    disabled: true,
-                                  },
-                                ]
-                            : [
-                                {
-                                  value: '',
-                                  label:
-                                    'Invalid provider, please check backend logs',
-                                  disabled: true,
-                                },
-                              ];
-                        })()}
+                            provider.charAt(0).toUpperCase() + provider.slice(1),
+                        }))}
                       />
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Embedding Model (dropdown) for non-custom providers */}
+                    {selectedEmbeddingModelProvider &&
+                      selectedEmbeddingModelProvider !== 'custom_openai' && (
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-black/70 dark:text-white/70 text-sm">Embedding Model</p>
+                          <Select
+                            value={selectedEmbeddingModel ?? undefined}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setSelectedEmbeddingModel(value);
+                              saveConfig('embeddingModel', value);
+                            }}
+                            options={(() => {
+                              const embeddingModelProvider =
+                                config.embeddingModelProviders[selectedEmbeddingModelProvider];
+                              return embeddingModelProvider
+                                ? embeddingModelProvider.length > 0
+                                  ? embeddingModelProvider.map((model) => ({
+                                      value: model.name,
+                                      label: model.displayName,
+                                    }))
+                                  : [{ value: '', label: 'No models available', disabled: true }]
+                                : [
+                                    {
+                                      value: '',
+                                      label: 'Invalid provider, please check backend logs',
+                                      disabled: true,
+                                    },
+                                  ];
+                            })()}
+                          />
+                        </div>
+                      )}
+
+                    {/* Embedding Model (typeable) for custom_openai */}
+                    {selectedEmbeddingModelProvider === 'custom_openai' && (
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-black/70 dark:text-white/70 text-sm">Embedding Model</p>
+                        <Input
+                          type="text"
+                          placeholder="Embedding model id (e.g., text-embedding-3-small)"
+                          value={config.customOpenaiEmbeddingModelName ?? ''}
+                          isSaving={savingStates['customOpenaiEmbeddingModelName']}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            const v = e.target.value;
+                            setSelectedEmbeddingModel(v);
+                            setConfig((prev) => ({ ...prev!, customOpenaiEmbeddingModelName: v }));
+                            localStorage.setItem('customOpenaiEmbeddingModelName', v);
+                            // Do NOT call saveConfig here, only persist locally and in state
+                          }}
+                          onSave={(value) => {
+                            // Persist to backend only on blur
+                            saveConfig('customOpenaiEmbeddingModelName', value);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
             </SettingsSection>
 
             <SettingsSection title="API Keys">
